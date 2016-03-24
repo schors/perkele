@@ -1,0 +1,246 @@
+#!/usr/bin/env python3.4
+# -*- coding: utf-8 -*-
+'''
+Created on 2016-03-21 19.09
+@author: phil@dip.host
+'''
+
+import sys
+import os
+import argparse
+import logging
+
+import json
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from acme import jose
+from acme import client
+from acme import messages
+
+def account_create(args):
+	""" Create ACME account """
+	logging.info('Create new account with %d bits key', args.bits)
+	keyfilename = os.path.abspath(args.key)
+	# rename keyfile if exists
+	if os.path.exists(keyfilename):
+		logging.debug('Backup account key: %s', keyfilename)
+		os.rename(keyfilename,keyfilename + '.bak')
+	profilefilename = os.path.abspath(args.profile)
+	# rename profile if exists
+	if os.path.exists(profilefilename):
+		logging.debug('Backup account profile: %s', profilefilename)
+		os.rename(profilefilename,profilefilename + '.bak')
+	# generate_private_key requires cryptography>=0.5
+	key = jose.JWKRSA(key=rsa.generate_private_key(
+		public_exponent=65537,
+		key_size=4096,
+		backend=default_backend())
+		)
+	acme = client.Client(args.server, key)
+	# create contact list
+	email_prefix = 'mailto:'
+	contact = []
+	for email in args.email:
+		contact.append(email_prefix + email)
+	if contact:
+		regr = acme.register(messages.NewRegistration(contact=tuple(contact)))
+	else:
+		regr = acme.register(messages.NewRegistration())
+	logging.info('Auto-accepting TOS: %s', regr.terms_of_service)
+	acme.agree_to_tos(regr)
+	logging.debug('Save account key: %s', keyfilename)
+	with open(keyfilename, "w") as f:
+		f.write(key.json_dumps())
+	logging.debug('Save account profile: %s', profilefilename)
+	with open(profilefilename, "w") as f:
+		data = { 'uri':regr.uri, 'contact':regr.body.contact }
+		f.write(json.dumps(data))
+	return regr
+
+def account_force_info(server, key):
+	""" Force fetching account info """
+	logging.debug("Try to force fetch account info")
+	acme = client.Client(server, key)
+	# try to register with broken email for force error
+	# this is bullshit
+	new_reg = messages.NewRegistration.from_data(email='')
+	url = acme.directory[new_reg]
+	data = acme.net._wrap_in_jws(new_reg, acme.net._get_nonce(url))
+	response = acme.net._send_request('POST', url, data=data)
+	acme.net._add_nonce(response)
+	if response.status_code == 409 and "Location" in response.headers:
+		# if account exists (409 code) then fetch info
+		account_uri = response.headers.get('Location')
+		logging.debug("Account found, uri: %s", account_uri)
+		# fucking lowtech bullshit with fucking acme library
+		# fucking uri overcommit, harmless Object model of native library
+		return acme._regr_from_response(acme.net.post(account_uri, messages.UpdateRegistration()), uri=account_uri)
+	else:
+		logging.error("Account not found!")
+		return None
+
+def account_info(args):
+	""" Info about account """
+	logging.info('Info about existing account')
+	logging.debug("Read account key: %s",args.key)
+	keyfilename = os.path.abspath(args.key)
+	with open(keyfilename) as f:
+		key = jose.JWK.json_loads(f.read())
+	try:
+		logging.debug("Read account profile: %s",args.profile)
+		profilefilename = os.path.abspath(args.profile)
+		with open(profilefilename) as f:
+			profile = json.loads(f.read())
+		logging.debug("Fetch account info")
+		acme = client.Client(args.server, key)
+		# fucking lowtech bullshit with fucking acme library
+		# fucking uri overcommit, harmless Object model of native library
+		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration()), uri=profile['uri'])
+	except:
+		# ooops... try to force fetching
+		regr = account_force_info(args.server,key)
+	if regr and args.update:
+		# update profile file
+		logging.debug("Update account profile: %s",profilefilename)
+		with open(profilefilename, "w") as f:
+			data = { 'uri':regr.uri, 'contact':regr.body.contact }
+			f.write(json.dumps(data))
+	return regr
+
+def account_update(args):
+	""" Update account contacts """
+	logging.info('Update account contacts')
+	logging.debug("Read account key: %s",args.key)
+	keyfilename = os.path.abspath(args.key)
+	with open(keyfilename) as f:
+		key = jose.JWK.json_loads(f.read())
+	logging.debug("Read account profile: %s",args.profile)
+	profilefilename = os.path.abspath(args.profile)
+	with open(profilefilename) as f:
+		profile = json.loads(f.read())
+	# create contact list
+	email_prefix = 'mailto:'
+	contact = []
+	for email in args.email:
+		contact.append(email_prefix + email)
+	logging.debug("Update account info")
+	acme = client.Client(args.server, key)
+	# fucking lowtech bullshit with fucking acme library
+	# fucking uri overcommit, harmless Object model of native library
+	if contact:
+		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration(contact=tuple(contact))), uri=profile['uri'])
+	else:
+		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration()), uri=profile['uri'])
+	if regr and args.update:
+		# update profile file
+		logging.debug("Update account profile: %s",profilefilename)
+		with open(profilefilename, "w") as f:
+			data = { 'uri':regr.uri, 'contact':regr.body.contact }
+			f.write(json.dumps(data))
+	return regr
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser()
+	parser.add_argument(
+		'-v', '--verbose', action='store_true', default=False,
+		help='Increase verbosity of the logging.',
+	)
+	subcommands = parser.add_subparsers(help='commands', dest='command')
+	subcommands.required = True
+	parser_account = subcommands.add_parser('account', help='account management')
+	subactions = parser_account.add_subparsers(help='actions', dest='action')
+	subactions.required = True
+	parser_create = subactions.add_parser('create', help='create new account')
+	parser_create.add_argument(
+		'-v', '--verbose', action='count', default=0,
+		help='Increase verbosity of the logging.',
+	)
+	parser_create.add_argument(
+		'-s', '--server', action='store', default='https://acme-staging.api.letsencrypt.org/directory',
+		help='ACME server URL.',
+	)
+	parser_create.add_argument(
+		'-k', '--key', action='store', default='account_key.json',
+		help='Account key.',
+	)
+	parser_create.add_argument(
+		'-p', '--profile', action='store', default='account_profile.json',
+		help='Account profile.',
+	)
+	parser_create.add_argument(
+		'-b', '--bits', action='store', default=4096, choices=[2048,4096],
+		help='RSA key bits.',
+	)
+	parser_create.add_argument(
+		'-e', '--email', action='append', default=[],
+		help='Contact email.',
+	)
+	parser_info = subactions.add_parser('info', help='info about existing account')
+	parser_info.add_argument(
+		'-v', '--verbose', action='count', default=0,
+		help='Increase verbosity of the logging.',
+	)
+	parser_info.add_argument(
+		'-s', '--server', action='store', default='https://acme-staging.api.letsencrypt.org/directory',
+		help='ACME server URL.',
+	)
+	parser_info.add_argument(
+		'-k', '--key', action='store', default='account_key.json',
+		help='Account key.',
+	)
+	parser_info.add_argument(
+		'-p', '--profile', action='store', default='account_profile.json',
+		help='Account profile.',
+	)
+	parser_info.add_argument(
+		'-u', '--update', action='store_true', default=False,
+		help='Update profile file.',
+	)
+	parser_update = subactions.add_parser('update', help='update existing account')
+	parser_update.add_argument(
+		'-v', '--verbose', action='count', default=0,
+		help='Increase verbosity of the logging.',
+	)
+	parser_update.add_argument(
+		'-s', '--server', action='store', default='https://acme-staging.api.letsencrypt.org/directory',
+		help='ACME server URL.',
+	)
+	parser_update.add_argument(
+		'-k', '--key', action='store', default='account_key.json',
+		help='Account key.',
+	)
+	parser_update.add_argument(
+		'-p', '--profile', action='store', default='account_profile.json',
+		help='Account profile.',
+	)
+	parser_update.add_argument(
+		'-u', '--update', action='store_true', default=False,
+		help='Update profile file.',
+	)
+	parser_update.add_argument(
+		'-e', '--email', action='append', default=[],
+		help='Contact email.',
+	)
+	args = parser.parse_args()
+	# Verbose levels
+	if args.verbose >= 3:
+		logging.basicConfig(level = logging.DEBUG)
+	elif args.verbose >= 2:
+		logging.basicConfig(level = logging.INFO)
+	elif args.verbose >= 1:
+		logging.basicConfig(level = logging.WARNING)
+	elif args.verbose == 0:
+		logging.basicConfig(level = logging.ERROR)
+	if args.command == 'account':
+		if args.action == 'create':
+			regr = account_create(args)
+		elif args.action == 'info':
+			regr = account_info(args)
+		elif args.action == 'update':
+			regr = account_update(args)
+	if regr:
+		print("Registration: %s" % regr.uri)
+		if regr.body.contact:
+			for contact in regr.body.contact:
+				print("Contact: %s" % contact)
