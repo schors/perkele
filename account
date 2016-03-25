@@ -1,147 +1,35 @@
 #!/usr/bin/env python3.4
 # -*- coding: utf-8 -*-
-'''
+
+"""
 Created on 2016-03-21 19.09
-@author: phil@dip.host
-'''
+@author: schors@gmail.com
+"""
 
 import sys
 import os
 import argparse
 import logging
-
 import json
-
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from acme import jose
 from acme import client
 from acme import messages
 
-def account_create(args):
-	""" Create ACME account """
-	logging.info('Create new account with %d bits key', args.bits)
-	keyfilename = os.path.abspath(args.key)
-	# rename keyfile if exists
-	if os.path.exists(keyfilename):
-		logging.debug('Backup account key: %s', keyfilename)
-		os.rename(keyfilename,keyfilename + '.bak')
-	profilefilename = os.path.abspath(args.profile)
-	# rename profile if exists
-	if os.path.exists(profilefilename):
-		logging.debug('Backup account profile: %s', profilefilename)
-		os.rename(profilefilename,profilefilename + '.bak')
-	# generate_private_key requires cryptography>=0.5
-	key = jose.JWKRSA(key=rsa.generate_private_key(
-		public_exponent=65537,
-		key_size=4096,
-		backend=default_backend())
-		)
-	acme = client.Client(args.server, key)
-	# create contact list
-	email_prefix = 'mailto:'
-	contact = []
-	for email in args.email:
-		contact.append(email_prefix + email)
-	if contact:
-		regr = acme.register(messages.NewRegistration(contact=tuple(contact)))
-	else:
-		regr = acme.register(messages.NewRegistration())
-	logging.info('Auto-accepting TOS: %s', regr.terms_of_service)
-	acme.agree_to_tos(regr)
-	logging.debug('Save account key: %s', keyfilename)
-	with open(keyfilename, "w") as f:
-		f.write(key.json_dumps())
-	logging.debug('Save account profile: %s', profilefilename)
-	with open(profilefilename, "w") as f:
-		data = { 'uri':regr.uri, 'contact':regr.body.contact }
-		f.write(json.dumps(data))
-	return regr
-
-def account_force_info(server, key):
-	""" Force fetching account info """
-	logging.debug("Try to force fetch account info")
-	acme = client.Client(server, key)
-	# try to register with broken email for force error
-	# this is bullshit
-	new_reg = messages.NewRegistration.from_data(email='')
-	url = acme.directory[new_reg]
-	data = acme.net._wrap_in_jws(new_reg, acme.net._get_nonce(url))
-	response = acme.net._send_request('POST', url, data=data)
-	acme.net._add_nonce(response)
-	if response.status_code == 409 and "Location" in response.headers:
-		# if account exists (409 code) then fetch info
-		account_uri = response.headers.get('Location')
-		logging.debug("Account found, uri: %s", account_uri)
-		# fucking lowtech bullshit with fucking acme library
-		# fucking uri overcommit, harmless Object model of native library
-		return acme._regr_from_response(acme.net.post(account_uri, messages.UpdateRegistration()), uri=account_uri)
-	else:
-		logging.error("Account not found!")
-		return None
-
-def account_info(args):
-	""" Info about account """
-	logging.info('Info about existing account')
-	logging.debug("Read account key: %s",args.key)
-	keyfilename = os.path.abspath(args.key)
-	with open(keyfilename) as f:
-		key = jose.JWK.json_loads(f.read())
+def dump_to_storage(filename, datastring):
+	""" Create backup copy and save file"""
+	logging.debug('Create backup copy and save file: %s', filename)
 	try:
-		logging.debug("Read account profile: %s",args.profile)
-		profilefilename = os.path.abspath(args.profile)
-		with open(profilefilename) as f:
-			profile = json.loads(f.read())
-		logging.debug("Fetch account info")
-		acme = client.Client(args.server, key)
-		# fucking lowtech bullshit with fucking acme library
-		# fucking uri overcommit, harmless Object model of native library
-		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration()), uri=profile['uri'])
+		if os.path.exists(filename):
+			os.rename(filename,filename + '.bak')
 	except:
-		# ooops... try to force fetching
-		regr = account_force_info(args.server,key)
-	if regr and args.update:
-		# update profile file
-		logging.debug("Update account profile: %s",profilefilename)
-		with open(profilefilename, "w") as f:
-			data = { 'uri':regr.uri, 'contact':regr.body.contact }
-			f.write(json.dumps(data))
-	return regr
-
-def account_update(args):
-	""" Update account contacts """
-	logging.info('Update account contacts')
-	logging.debug("Read account key: %s",args.key)
-	keyfilename = os.path.abspath(args.key)
-	with open(keyfilename) as f:
-		key = jose.JWK.json_loads(f.read())
-	logging.debug("Read account profile: %s",args.profile)
-	profilefilename = os.path.abspath(args.profile)
-	with open(profilefilename) as f:
-		profile = json.loads(f.read())
-	# create contact list
-	email_prefix = 'mailto:'
-	contact = []
-	for email in args.email:
-		contact.append(email_prefix + email)
-	logging.debug("Update account info")
-	acme = client.Client(args.server, key)
-	# fucking lowtech bullshit with fucking acme library
-	# fucking uri overcommit, harmless Object model of native library
-	if contact:
-		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration(contact=tuple(contact))), uri=profile['uri'])
-	else:
-		regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration()), uri=profile['uri'])
-	if regr and args.update:
-		# update profile file
-		logging.debug("Update account profile: %s",profilefilename)
-		with open(profilefilename, "w") as f:
-			data = { 'uri':regr.uri, 'contact':regr.body.contact }
-			f.write(json.dumps(data))
-	return regr
+		logging.error("Can't  backup file: %s", filename)
+	with open(filename, "w") as f:
+		f.write(datastring)
 
 if __name__ == "__main__":
-	# parse commandline
+	### Parse command line
 	parser = argparse.ArgumentParser()
 	parser.add_argument(
 		'-v', '--verbose', action='count', default=0,
@@ -228,26 +116,110 @@ if __name__ == "__main__":
 		help='contact email, use multiple times for more than one',
 	)
 	args = parser.parse_args()
-	# verbose levels
-	if args.verbose >= 3:
-		logging.basicConfig(level = logging.DEBUG)
-	elif args.verbose >= 2:
-		logging.basicConfig(level = logging.INFO)
-	elif args.verbose >= 1:
-		logging.basicConfig(level = logging.WARNING)
-	elif args.verbose == 0:
-		logging.basicConfig(level = logging.ERROR)
-	# dispatcher
-	if args.command == 'account':
-		if args.action == 'create':
-			regr = account_create(args)
-		elif args.action == 'info':
-			regr = account_info(args)
-		elif args.action == 'update':
-			regr = account_update(args)
+	### MAIN SECTION
+	try:
+		# absolute paths for key and profile
+		keyfilename = os.path.abspath(args.key)
+		profilefilename = os.path.abspath(args.profile)
+		# verbose levels
+		if args.verbose >= 3:
+			logging.basicConfig(level = logging.DEBUG)
+		elif args.verbose >= 2:
+			logging.basicConfig(level = logging.INFO)
+		elif args.verbose >= 1:
+			logging.basicConfig(level = logging.WARNING)
+		elif args.verbose == 0:
+			logging.basicConfig(level = logging.ERROR)
+		# dispatcher
+		if args.command == 'account':
+			## ACCOUNT actions
+			if args.action == 'create':
+				# create new account
+				logging.info('Create new account with %d bits key', args.bits)
+				# generate_private_key requires cryptography>=0.5
+				key = jose.JWKRSA(key=rsa.generate_private_key(
+					public_exponent=65537,
+					key_size=args.bits,
+					backend=default_backend())
+					)
+				# init acme client
+				acme = client.Client(args.server, key)
+				# create contact list
+				contact = map(lambda x: 'mailto:' + x, args.email) if len(args.email) > 0 else ()
+				# register account
+				regr = acme.register(messages.NewRegistration(contact = tuple(contact))) # method `.from_data()`... what for?
+				# auto accept ToS... WHAT THE FUCK?!!!
+				logging.info('Auto-accepting TOS: %s', regr.terms_of_service)
+				acme.agree_to_tos(regr)
+				# save to storage
+				logging.info('Save key and profile to storage')
+				dump_to_storage(keyfilename, key.json_dumps())
+				dump_to_storage(profilefilename, json.dumps({ 'uri':regr.uri, 'contact':regr.body.contact }))
+			elif args.action == 'info':
+				# info about account
+				logging.info('Info about existing account')
+				with open(keyfilename) as f:
+					key = jose.JWK.json_loads(f.read())
+				try:
+					with open(profilefilename) as f:
+						profile = json.loads(f.read())
+					logging.debug("Fetch account info")
+					acme = client.Client(args.server, key)
+					# fucking lowtech bullshit with fucking acme library
+					# fucking overcommit, harmless Object model of native library
+					# Client.update_registration() method verify old `regr` with new... facepalm.jpg
+					regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration()), uri=profile['uri'])
+				except:
+					# ooops... try to force fetching
+					logging.debug("Try to force fetch account info")
+					acme = client.Client(args.server, key)
+					# try to register with broken email for force error
+					new_reg = messages.NewRegistration.from_data(email='')
+					url = acme.directory[new_reg]
+					# this is bullshit code for "response" variable reach out
+					response = acme.net._send_request('POST', url, data = acme.net._wrap_in_jws(new_reg, acme.net._get_nonce(url)))
+					acme.net._add_nonce(response)
+					if response.status_code == 409 and "Location" in response.headers:
+						# if account exists (409 code) then fetch info
+						account_uri = response.headers.get('Location')
+						logging.debug("Account found, uri: %s", account_uri)
+						# fucking lowtech bullshit with fucking acme library
+						# fucking overcommit, harmless Object model of native library
+						# Client.update_registration() method verify old `regr` with new... facepalm.jpg
+						regr = acme._regr_from_response(acme.net.post(account_uri, messages.UpdateRegistration()), uri=account_uri)
+					else:
+						raise Exception('Account not found')
+				# save profile to storage
+				if regr and args.update:
+					# update profile file
+					logging.info("Update account profile: %s",profilefilename)
+					dump_to_storage(profilefilename, json.dumps({ 'uri':regr.uri, 'contact':regr.body.contact }))
+			elif args.action == 'update':
+				# update accounts contact
+				logging.info('Update account contacts')
+				with open(keyfilename) as f:
+					key = jose.JWK.json_loads(f.read())
+				with open(profilefilename) as f:
+					profile = json.loads(f.read())
+				logging.debug("Update account info")
+				# init acme client
+				acme = client.Client(args.server, key)
+				# create contact list
+				contact = map(lambda x: 'mailto:' + x, args.email) if len(args.email) > 0 else ()
+				# fucking lowtech bullshit with fucking acme library
+				# fucking uri overcommit, harmless Object model of native library
+				regr = acme._regr_from_response(acme.net.post(profile['uri'], messages.UpdateRegistration(contact=tuple(contact))), uri=profile['uri'])
+				# save profile to storage
+				if regr and args.update:
+					# update profile file
+					logging.debug("Update account profile: %s",profilefilename)
+					dump_to_storage(profilefilename, json.dumps({ 'uri':regr.uri, 'contact':regr.body.contact }))
+	except:
+		# Not need explicit error handling, only return code
+		logging.critical("ERROR: %s", sys.exc_info()[1])
+		sys.exit(1)
 	# print info
-	if regr:
-		print("Registration: %s" % regr.uri)
-		if regr.body.contact:
-			for contact in regr.body.contact:
-				print("Contact: %s" % contact)
+	print("Registration: %s" % regr.uri)
+	if regr.body.contact:
+		for contact in regr.body.contact:
+			print("Contact: %s" % contact)
