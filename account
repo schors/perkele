@@ -118,9 +118,8 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	### MAIN SECTION
 	try:
-		# absolute paths for key and profile
+		# absolute path for key
 		keyfilename = os.path.abspath(args.key)
-		profilefilename = os.path.abspath(args.profile)
 		# verbose levels
 		if args.verbose >= 3:
 			logging.basicConfig(level = logging.DEBUG)
@@ -134,6 +133,8 @@ if __name__ == "__main__":
 		if args.command == 'account':
 			## ACCOUNT actions
 			if args.action == 'create':
+				# absolute path for profile, needed only for `account` command
+				profilefilename = os.path.abspath(args.profile)
 				# create new account
 				logging.info('Create new account with %d bits key', args.bits)
 				# generate_private_key requires cryptography>=0.5
