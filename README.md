@@ -29,7 +29,7 @@ Isn't the point of Let's Encrypt to be automatic and seamless? Maybe, but here's
 
 * And finally, if the `openssl` binary is your spirit animal after all, you can still bring your own keys and/or CSR's. Everybody wins.
 
-![simple security][perkele.png]
+![simple security](perkele.png)
 
 ## Installation
 
