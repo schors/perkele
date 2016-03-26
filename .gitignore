@@ -1,5 +1,7 @@
 *\~
 *.swp
 *.bak
-account_key.json
-account_profile.json
+perkele.egg-info
+perkele/__pycache__
+account.json
+contrib/*.json
