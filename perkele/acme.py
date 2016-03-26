@@ -13,7 +13,7 @@ from .crypto import generate_header, sign_request
 from .errors import *
 
 DEFAULT_HEADERS = {
-    'User-Agent': "perkele {} (https://github.com/schors/perkeLE)".format(__version__),
+    'User-Agent': "perkele {} (https://github.com/schors/perkele)".format(__version__),
 }
 
 class Acme:

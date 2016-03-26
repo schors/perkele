@@ -21,7 +21,7 @@ setup(
     license='WTFPL',
     description="A fully manual Let's Encrypt/ACME client",
     long_description=readme,
-    url='https://github.com/schors/perkeLE',
+    url='https://github.com/schors/perkele',
     author="Veeti Paananen, Phil Kulin",
     author_email='schors@gmail.com',
     classifiers=[
