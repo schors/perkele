@@ -41,8 +41,8 @@ contains your private key, and you need it to get certificates!
 
 DESCRIPTION_AUTHORIZE = \
 """
-Authorizes a domain or multiple domains for your account through DNS
-verification. You will need to set DNS records as prompted.
+Authorizes a domain or multiple domains for your account through HTTP
+verification. You will need to put some files as prompted.
 
 After authorizing a domain, you can issue certificates for it. Authorizations
 can last for a long time, so you might not need to do this every time you want
@@ -146,7 +146,7 @@ def load_account(path):
     if not os.path.exists(path):
         logger.error("Couldn't find an account file at {}.".format(path))
         logger.error("Are you in the right directory? Did you register yet?")
-        logger.error("Run 'manuale -h' for instructions.")
+        logger.error("Run 'perkele -h' for instructions.")
         raise ManualeError()
 
     try:
@@ -248,7 +248,7 @@ def main():
 
     # Version
     version = subparsers.add_parser('version', help="Show the version number")
-    version.set_defaults(func=lambda *args: logger.info("perkele {}".format(manuale.__version__)))
+    version.set_defaults(func=lambda *args: logger.info("perkele {}".format(perkele.__version__)))
 
     # Parse
     args = parser.parse_args()

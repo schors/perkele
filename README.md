@@ -84,6 +84,7 @@ For fire, litnings and nuts
 
 ## TODO
 * ~~Use 'Retry-After' Header for challenge rerties delay~~
+* Write helps on exclusive futures
 * Multilevel logging
 * Remake acme.send_post method for `directory` support
 * Create "JWK" package
