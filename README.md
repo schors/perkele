@@ -80,7 +80,7 @@ There's plenty of documentation inside each command. Run `perkele -h` for a list
 
 ## DONATE
 
-For fire, litnings and nuts
+For fire, lightnings and nuts
 * [Yandex.Money: 41001140237324](https://money.yandex.ru/embed/shop.xml?account=41001140237324&quickpay=shop&payment-type-choice=on&writer=seller&targets=donate+fo+perkeLE&default-sum=1000&button-text=04&successURL=" width="450" height="198")
 * PayPal: schors@gmail.com
 
