@@ -117,6 +117,7 @@ def ready(server, account, authz_string, acme=None):
             logger.info("{} domain(s) authorized, {} failed.".format(len(done), len(failed)))
             logger.info("Authorized: {}".format(' '.join(done) or "N/A"))
             logger.info("Failed: {}".format(' '.join(failed)))
+            raise ManualeError("{} domain(s) authorized, {} failed.".format(len(done), len(failed)))
         else:
             logger.info("{} domain(s) authorized. Let's Encrypt!".format(len(done)))
     except IOError as e:
