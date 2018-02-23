@@ -1,7 +1,7 @@
 # PerkeLE
 
 perkeLE is a fully manual [Let's Encrypt](https://letsencrypt.org)/[ACME](https://github.com/ietf-wg-acme/acme/) client for advanced users. It is intended to be used by a human in a manual workflow and contains no automation features whatsoever.
-perkeLE is a fork of [ManuaLE](https://github.com/veeti/manuale/). ManuaLE is greate command line script by Veeti Paananen with beautifull code.
+perkeLE is a fork of [ManuaLE](https://github.com/veeti/manuale/). ManuaLE is greate command line script by Veeti Paananen with beautiful code.
 
 ## Why?
 
@@ -41,16 +41,14 @@ Isn't the point of Let's Encrypt to be automatic and seamless? Maybe, but here's
     env/bin/python setup.py install
     ln -s env/bin/manuale ~/.bin/
 
-(Assuming you have a `~/.bin/` directory in your `$PATH`).
+Assuming you have a `~/.bin/` directory in your `$PATH`.
 
 ### From the git repository with pip
 
-    git clone https://github.com/schors/perkele ~/
-    cd ~/perkele
-    pip install --user ./
+    pip install --user https://github.com/schors/perkele/archive/master.zip
     ln -s ~/.local/bin/perkele ~/.bin/
 
-(Assuming you have a `~/.bin/` directory in your `$PATH`).
+Assuming you have a `~/.bin/` directory in your `$PATH`.
 
 ## Quick start
 
@@ -66,7 +64,7 @@ Get your certificate:
 
     $ perkele issue --output certs/ example.com
 
-Set yourself a reminder for renewal!
+Set yourself a [reminder for renewal](https://github.com/szepeviktor/debian-server-tools/blob/master/monitoring/cert-expiry.sh)!
 
 There's plenty of documentation inside each command. Run `perkele -h` for a list of commands and `perkele [command] -h` for details.
 
@@ -81,10 +79,12 @@ There's plenty of documentation inside each command. Run `perkele -h` for a list
 ## DONATE
 
 For fire, lightnings and nuts
-* [Yandex.Money: 41001140237324](https://money.yandex.ru/embed/shop.xml?account=41001140237324&quickpay=shop&payment-type-choice=on&writer=seller&targets=donate+fo+perkeLE&default-sum=1000&button-text=04&successURL=" width="450" height="198")
-* PayPal: schors@gmail.com
+
+* [Yandex.Money: 41001140237324](https://money.yandex.ru/embed/shop.xml?account=41001140237324&quickpay=shop&payment-type-choice=on&writer=seller&targets=donate+fo+perkeLE&default-sum=1000&button-text=04&successURL=)
+* PayPal: `schors@gmail.com`
 
 ## TODO
+
 * ~~Use 'Retry-After' Header for challenge rerties delay~~
 * Write helps on exclusive futures
 * Multilevel logging
@@ -96,4 +96,5 @@ For fire, lightnings and nuts
 * Allow `crypto` package for RSA512 and other
 
 --
+
 [![LICENSE WTFPL](wtfpl-badge-1.png)](LICENSE)
